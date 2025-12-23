@@ -201,7 +201,35 @@
       ingredientsSummary.textContent = `Přísad: ${state.ingredients.length}, Součet g: ${fmt(totalMass)}, Součet kJ: ${fmt(total_kJ)}`;
     }
 
-    function renderIngredientRow(it, idx){
+    
+  // === Helpery pro plynulé psaní bez ztráty fokusu ===
+  function updateComputedForRow(it, tr) {
+    const kjCell = tr.querySelector('.kjItem');
+    if (kjCell) kjCell.textContent = fmt((Number(it.mass_g)||0) * (Number(it.energy_kJ_per_100g)||0) / 100);
+
+    const realMass = Number(realTotalMassInput.value);
+    const servings = Math.max(1, Number(servingsInput.value) || 1);
+    const totalMass = state.mix.totalMass_g || 0;
+    const baseMass = (realMass > 0) ? realMass : totalMass;
+    const share = (Number(it.mass_g)||0) / (totalMass || 1e-9);
+    const percentReal = (Number(it.mass_g)||0) / ((baseMass) || 1e-9) * 100;
+    const gPerPortionReal = share * (baseMass / servings);
+
+    const pCell = tr.querySelector('.percentReal');
+    const gCell = tr.querySelector('.gPerPortionReal');
+    if (pCell) pCell.textContent = isFinite(percentReal) ? (fmt(percentReal) + ' %') : '—';
+    if (gCell) gCell.textContent = isFinite(gPerPortionReal) ? fmt(gPerPortionReal) : '—';
+  }
+
+  function refreshAllRowsComputed() {
+    const rows = ingredientsBody.querySelectorAll('tr');
+    rows.forEach((tr, i) => {
+      const it = state.ingredients[i];
+      if (it) updateComputedForRow(it, tr);
+    });
+  }
+
+  function renderIngredientRow(it, idx){
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" value="${it.name||''}" data-idx="${idx}" data-field="name" /></td>
@@ -237,8 +265,8 @@
     document.getElementById('addIngredientBtn').addEventListener('click',()=>{ state.ingredients.push({ name:'', mass_g:null, energy_kJ_per_100g:null, max_g:null, protein_g_per_100g:null, carbs_g_per_100g:null, fat_g_per_100g:null, fiber_g_per_100g:null }); render(); });
     document.getElementById('clearIngredientsBtn').addEventListener('click',()=>{ if(confirm('Opravdu vymazat všechny přísady?')){ state.ingredients=[]; recompute(); render(); }});
 
-    servingsInput.addEventListener('input',()=>{ recompute(); render(); });
-    realTotalMassInput.addEventListener('input',()=>{ recompute(); render(); });
+    servingsInput.addEventListener('input', () => { recompute(); refreshAllRowsComputed(); });
+    realTotalMassInput.addEventListener('input', () => { recompute(); refreshAllRowsComputed(); });
 
     function optimize(){
       let targetMass = Number(document.getElementById('optTotalMass').value);
