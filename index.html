@@ -202,34 +202,34 @@
     }
 
     
-  // === Helpery pro plynulé psaní bez ztráty fokusu ===
-  function updateComputedForRow(it, tr) {
-    const kjCell = tr.querySelector('.kjItem');
-    if (kjCell) kjCell.textContent = fmt((Number(it.mass_g)||0) * (Number(it.energy_kJ_per_100g)||0) / 100);
+    // === Helpery pro plynulé psaní bez ztráty fokusu ===
+    function updateComputedForRow(it, tr) {
+      const kjCell = tr.querySelector('.kjItem');
+      if (kjCell) kjCell.textContent = fmt((Number(it.mass_g)||0) * (Number(it.energy_kJ_per_100g)||0) / 100);
 
-    const realMass = Number(realTotalMassInput.value);
-    const servings = Math.max(1, Number(servingsInput.value) || 1);
-    const totalMass = state.mix.totalMass_g || 0;
-    const baseMass = (realMass > 0) ? realMass : totalMass;
-    const share = (Number(it.mass_g)||0) / (totalMass || 1e-9);
-    const percentReal = (Number(it.mass_g)||0) / ((baseMass) || 1e-9) * 100;
-    const gPerPortionReal = share * (baseMass / servings);
+      const realMass = Number(realTotalMassInput.value);
+      const servings = Math.max(1, Number(servingsInput.value) || 1);
+      const totalMass = state.mix.totalMass_g || 0;
+      const baseMass = (realMass > 0) ? realMass : totalMass;
+      const share = (Number(it.mass_g)||0) / (totalMass || 1e-9);
+      const percentReal = (Number(it.mass_g)||0) / ((baseMass) || 1e-9) * 100;
+      const gPerPortionReal = share * (baseMass / servings);
 
-    const pCell = tr.querySelector('.percentReal');
-    const gCell = tr.querySelector('.gPerPortionReal');
-    if (pCell) pCell.textContent = isFinite(percentReal) ? (fmt(percentReal) + ' %') : '—';
-    if (gCell) gCell.textContent = isFinite(gPerPortionReal) ? fmt(gPerPortionReal) : '—';
-  }
+      const pCell = tr.querySelector('.percentReal');
+      const gCell = tr.querySelector('.gPerPortionReal');
+      if (pCell) pCell.textContent = isFinite(percentReal) ? (fmt(percentReal) + ' %') : '—';
+      if (gCell) gCell.textContent = isFinite(gPerPortionReal) ? fmt(gPerPortionReal) : '—';
+    }
 
-  function refreshAllRowsComputed() {
-    const rows = ingredientsBody.querySelectorAll('tr');
-    rows.forEach((tr, i) => {
-      const it = state.ingredients[i];
-      if (it) updateComputedForRow(it, tr);
-    });
-  }
+    function refreshAllRowsComputed() {
+      const rows = ingredientsBody.querySelectorAll('tr');
+      rows.forEach((tr, i) => {
+        const it = state.ingredients[i];
+        if (it) updateComputedForRow(it, tr);
+      });
+    }
 
-  function renderIngredientRow(it, idx){
+    function renderIngredientRow(it, idx){
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" value="${it.name||''}" data-idx="${idx}" data-field="name" /></td>
