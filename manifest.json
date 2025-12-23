@@ -1,15 +1,9 @@
 {
-  "name": "Tabulka porcí",
-  "short_name": "Porce",
-  "description": "PWA pro výpočet porcí s reálnou hmotností, optimalizací (B/S/T/V) a historií",
-  "lang": "cs",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0d6efd",
-  "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  "screenshots": [
+    {
+      "src": "icons/splash-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
   ]
 }
