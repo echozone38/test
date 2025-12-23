@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptová PWA</title>
+
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Basic PWA meta -->
+    <meta name="theme-color" content="#4CAF50">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #4CAF50; }
+        .card {
+            background: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        label { font-weight: bold; }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin: 6px 0 12px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            padding: 10px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover { background: #45a049; }
+        .history-item {
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Receptová PWA</h1>
+
+<div class="card">
+    <h2>Režim recept</h2>
+
+    <label>Počet osob</label>
+    <input type="number" id="pocetOsob" value="1">
+
+    <label>Porce na osobu (g)</label>
+    <input type="number" id="porceNaOsobu" value="200">
+
+    <label>Ingredience – množství v 1 porci (g nebo ml)</label>
+    <input type="number" id="mnozstviIngredience" value="50">
+
+    <label>Nutriční hodnota ingredience (kJ / 100 g)</label>
+    <input type="number" id="nutriHodnota" value="800">
+
+    <button onclick="spocitat()">Spočítat</button>
+
+    <h3>Výsledky</h3>
+    <p id="vysledky"></p>
+</div>
+
+<div class="card">
+    <h2>Režim optimalizace</h2>
+
+    <label>Max. kJ na porci</label>
+    <input type="number" id="maxKJ" value="2000">
+
+    <button onclick="optimalizovat()">Optimalizovat</button>
+
+    <p id="optVysledky"></p>
+</div>
+
+<div class="card">
+    <h2>Historie receptů</h2>
+    <div id="historie"></div>
+</div>
+
+<script>
+// -----------------------------
+// Výpočet receptu
+// -----------------------------
+function spocitat() {
+    const osoby = Number(document.getElementById("pocetOsob").value);
+    const porce = Number(document.getElementById("porceNaOsobu").value);
+    const ing = Number(document.getElementById("mnozstviIngredience").value);
+    const nutri = Number(document.getElementById("nutriHodnota").value);
+
+    const celkovaHmotnost = osoby * porce;
+    const celkoveMnozstviIngredience = osoby * ing;
+    const celkovaEnergetickaHodnota = (celkoveMnozstviIngredience / 100) * nutri;
+
+    const text = `
+        Celková hmotnost směsi: <b>${celkovaHmotnost} g</b><br>
+        Množství ingredience celkem: <b>${celkoveMnozstviIngredience} g/ml</b><br>
+        Celková energetická hodnota: <b>${celkovaEnergetickaHodnota.toFixed(1)} kJ</b>
+    `;
+
+    document.getElementById("vysledky").innerHTML = text;
+
+    ulozitDoHistorie({
+        osoby, porce, ing, nutri,
+        celkovaHmotnost,
+        celkoveMnozstviIngredience,
+        celkovaEnergetickaHodnota
+    });
+}
+
+// -----------------------------
+// Optimalizace
+// -----------------------------
+function optimalizovat() {
+    const maxKJ = Number(document.getElementById("maxKJ").value);
+    const nutri = Number(document.getElementById("nutriHodnota").value);
+
+    const maxMnozstvi = (maxKJ / nutri) * 100;
+
+    document.getElementById("optVysledky").innerHTML =
+        `Maximální množství ingredience na porci: <b>${maxMnozstvi.toFixed(1)} g/ml</b>`;
+}
+
+// -----------------------------
+// Historie receptů (localStorage)
+// -----------------------------
+function ulozitDoHistorie(data) {
+    let historie = JSON.parse(localStorage.getItem("historieReceptu") || "[]");
+    historie.push(data);
+    localStorage.setItem("historieReceptu", JSON.stringify(historie));
+    zobrazHistorii();
+}
+
+function zobrazHistorii() {
+    let historie = JSON.parse(localStorage.getItem("historieReceptu") || "[]");
+    const div = document.getElementById("historie");
+    div.innerHTML = "";
+
+    historie.slice().reverse().forEach((r) => {
+        div.innerHTML += `
+            <div class="history-item">
+                Osoby: ${r.osoby}, Porce: ${r.porce} g<br>
+                Ingredience: ${r.ing} g/ml<br>
+                Celkem: ${r.celkovaHmotnost} g, ${r.celkovaEnergetickaHodnota.toFixed(1)} kJ
+            </div>
+        `;
+    });
+}
+
+zobrazHistorii();
+
+// -----------------------------
+// Registrace service workeru
+// -----------------------------
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+</html>
