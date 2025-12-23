@@ -201,34 +201,6 @@
       ingredientsSummary.textContent = `Přísad: ${state.ingredients.length}, Součet g: ${fmt(totalMass)}, Součet kJ: ${fmt(total_kJ)}`;
     }
 
-    
-    // === Helpery pro plynulé psaní bez ztráty fokusu ===
-    function updateComputedForRow(it, tr) {
-      const kjCell = tr.querySelector('.kjItem');
-      if (kjCell) kjCell.textContent = fmt((Number(it.mass_g)||0) * (Number(it.energy_kJ_per_100g)||0) / 100);
-
-      const realMass = Number(realTotalMassInput.value);
-      const servings = Math.max(1, Number(servingsInput.value) || 1);
-      const totalMass = state.mix.totalMass_g || 0;
-      const baseMass = (realMass > 0) ? realMass : totalMass;
-      const share = (Number(it.mass_g)||0) / (totalMass || 1e-9);
-      const percentReal = (Number(it.mass_g)||0) / ((baseMass) || 1e-9) * 100;
-      const gPerPortionReal = share * (baseMass / servings);
-
-      const pCell = tr.querySelector('.percentReal');
-      const gCell = tr.querySelector('.gPerPortionReal');
-      if (pCell) pCell.textContent = isFinite(percentReal) ? (fmt(percentReal) + ' %') : '—';
-      if (gCell) gCell.textContent = isFinite(gPerPortionReal) ? fmt(gPerPortionReal) : '—';
-    }
-
-    function refreshAllRowsComputed() {
-      const rows = ingredientsBody.querySelectorAll('tr');
-      rows.forEach((tr, i) => {
-        const it = state.ingredients[i];
-        if (it) updateComputedForRow(it, tr);
-      });
-    }
-
     function renderIngredientRow(it, idx){
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -244,7 +216,12 @@
         <td><input type="number" min="0" step="0.1" value="${it.fat_g_per_100g??''}" data-idx="${idx}" data-field="fat_g_per_100g" /></td>
         <td><input type="number" min="0" step="0.1" value="${it.fiber_g_per_100g??''}" data-idx="${idx}" data-field="fiber_g_per_100g" /></td>
         <td class="actions"><button data-idx="${idx}" data-action="dup">Duplikovat</button><button data-idx="${idx}" data-action="del">Smazat</button></td>`;
-      tr.querySelectorAll('input').forEach(inp=>{ inp.addEventListener('input',()=>{ const i=Number(inp.dataset.idx); const field=inp.dataset.field; let val=inp.value; if(field!=='name') val= val===''? null : Number(val); state.ingredients[i][field]=val; recompute(); render(); }); });
+      tr.querySelectorAll('input').forEach(inp=>{ inp.addEventListener('input',()=>{
+      __isEditingRow = true;
+ const i=Number(inp.dataset.idx); const field=inp.dataset.field; let val=inp.value; if(field!=='name') val= val===''? null : Number(val); state.ingredients[i][field]=val; recompute();
+      updateComputedForRow(state.ingredients[i], tr);
+      __isEditingRow = false;
+      updateComputedForRow(state.ingredients[i], tr); }); });
       tr.querySelectorAll('button').forEach(btn=>{ btn.addEventListener('click',()=>{ const i=Number(btn.dataset.idx); const act=btn.dataset.action; if(act==='del'){ state.ingredients.splice(i,1);} else if(act==='dup'){ const copy=JSON.parse(JSON.stringify(state.ingredients[i])); state.ingredients.splice(i+1,0,copy);} recompute(); render(); }); });
 
       // reverse values based on real mass / portion
@@ -260,13 +237,47 @@
       return tr;
     }
 
+    
+    // === Ochrana fokusu při psaní v řádcích Přísad ===
+    let __isEditingRow = false;
+
+    function safeRenderPreserveCaret() {
+      const active = document.activeElement;
+      const isInput = active && active.tagName === 'INPUT' && active.dataset && active.dataset.field;
+      let selStart = null, selEnd = null, fieldKey = null, idxKey = null;
+      if (isInput) {
+        try { selStart = active.selectionStart; selEnd = active.selectionEnd; } catch {}
+        fieldKey = active.dataset.field; idxKey = active.dataset.idx;
+      }
+      // Render
+      ingredientsBody.innerHTML = '';
+      state.ingredients.forEach((it, i) => { ingredientsBody.appendChild(renderIngredientRow(it, i)); });
+      // Restore caret
+      if (isInput && fieldKey != null && idxKey != null) {
+        const selector = `input[data-field="${fieldKey}"][data-idx="${idxKey}"]`;
+        const newInp = ingredientsBody.querySelector(selector);
+        if (newInp) {
+          newInp.focus();
+          try { newInp.setSelectionRange(selStart, selEnd); } catch {}
+        }
+      }
+    }
+
+    function renderIfNotEditing() {
+      if (!__isEditingRow) {
+        // standard render
+        ingredientsBody.innerHTML = '';
+        state.ingredients.forEach((it, i) => { ingredientsBody.appendChild(renderIngredientRow(it, i)); });
+      }
+    }
+    
     function render(){ ingredientsBody.innerHTML=''; state.ingredients.forEach((it,idx)=>{ ingredientsBody.appendChild(renderIngredientRow(it,idx)); }); }
 
     document.getElementById('addIngredientBtn').addEventListener('click',()=>{ state.ingredients.push({ name:'', mass_g:null, energy_kJ_per_100g:null, max_g:null, protein_g_per_100g:null, carbs_g_per_100g:null, fat_g_per_100g:null, fiber_g_per_100g:null }); render(); });
     document.getElementById('clearIngredientsBtn').addEventListener('click',()=>{ if(confirm('Opravdu vymazat všechny přísady?')){ state.ingredients=[]; recompute(); render(); }});
 
-    servingsInput.addEventListener('input', () => { recompute(); refreshAllRowsComputed(); });
-    realTotalMassInput.addEventListener('input', () => { recompute(); refreshAllRowsComputed(); });
+    servingsInput.addEventListener('input',()=>{ recompute(); render(); });
+    realTotalMassInput.addEventListener('input',()=>{ recompute(); render(); });
 
     function optimize(){
       let targetMass = Number(document.getElementById('optTotalMass').value);

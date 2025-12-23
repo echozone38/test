@@ -1,5 +1,5 @@
 // PWA Service Worker – cache-first
-const CACHE_NAME = 'tabulka-porci-cache-v4';
+const CACHE_NAME = 'tabulka-porci-cache-v5';
 const ASSETS = [
   './',
   'index.html',
