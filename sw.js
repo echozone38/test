@@ -1,5 +1,5 @@
 // Jednoduchý Service Worker pro PWA na GitHub Pages
-const CACHE_NAME = 'mix-app-cache-v1';
+const CACHE_NAME = 'porce-app-cache-v1';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -36,7 +36,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // CDN & statické soubory: stale-while-revalidate
+  // Statické & CDN: stale-while-revalidate
   if(url.origin !== self.location.origin || req.destination === 'script' || req.destination === 'style' || req.destination === 'image'){
     event.respondWith(
       caches.match(req).then(cached => {
