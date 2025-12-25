@@ -1,352 +1,436 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="cs">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tabulka porcí</title>
-  <meta name="description" content="PWA: Tabulka porcí – směs, porce, přísady, energie, optimalizace, historie" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>Rozpočet směsi & suroviny (PWA)</title>
+  <meta name="description" content="Jednoduchá PWA aplikace pro rozpočítání směsi a suroviny na porce z Excelu." />
+
+  <!-- PWA manifest & icons -->
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0d6efd" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+
+  <!-- XLSX (SheetJS) pro klientské čtení Excelu -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha256-rmCkT1VY3xwPqYUSrH3i9t3uFZIRg0r2U8aYxL6Sbwk=" crossorigin="anonymous"></script>
+
   <style>
-    :root { color-scheme: light dark; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; margin: 0 auto; padding: 1.25rem; max-width: 1100px; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-    header h1 { margin: 0; font-size: 1.4rem; }
-    .badge { display: inline-block; padding: .15rem .45rem; border-radius: .4rem; border: 1px solid color-mix(in oklab, CanvasText 25%, transparent); font-size: .8rem; }
-    main section { margin-top: 1rem; }
-    h2 { font-size: 1.1rem; margin: .2rem 0 .6rem; }
-    .grid { display: grid; gap: .6rem; }
-    .grid.cols-2 { grid-template-columns: 1fr 1fr; }
-    .grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-    .grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
-    label { display: block; font-size: .88rem; margin-bottom: .2rem; }
-    input, button { padding: .45rem .6rem; border-radius: .4rem; border: 1px solid color-mix(in oklab, CanvasText 25%, transparent); }
-    input[type="number"], input[type="text"] { width: 100%; }
-    table { width: 100%; border-collapse: collapse; overflow: auto; display: block; }
-    th, td { padding: .5rem; border-bottom: 1px solid color-mix(in oklab, CanvasText 20%, transparent); text-align: left; white-space: nowrap; }
-    tfoot td { font-weight: 600; }
-    .actions { display: flex; gap: .5rem; flex-wrap: wrap; }
-    .card { border: 1px solid color-mix(in oklab, CanvasText 20%, transparent); border-radius: .6rem; padding: .8rem; }
-    .muted { color: color-mix(in oklab, CanvasText 60%, transparent); font-size: .85rem; }
+    :root{ --bg:#0b1020; --panel:#11172a; --text:#e6edf3; --muted:#9fb3c8; --accent:#0ea5e9; --accent2:#0f766e; --danger:#ef4444; }
+    html,body{ height:100%; }
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+    header{ padding:1rem 1.25rem; background:linear-gradient(90deg,var(--panel),#0d2327); border-bottom:1px solid #1f2b46; position:sticky; top:0; z-index:10; }
+    header h1{ margin:0; font-size:1.25rem; }
+    header .sub{ font-size:0.85rem; color:var(--muted); }
+    main{ max-width:1000px; margin:0 auto; padding:1rem; }
+    .card{ background:var(--panel); border:1px solid #1f2b46; border-radius:10px; padding:1rem; margin:1rem 0; }
+    .row{ display:flex; gap:1rem; flex-wrap:wrap; }
+    .col{ flex:1 1 280px; min-width:280px; }
+    label{ display:block; font-size:0.9rem; margin-bottom:0.35rem; color:var(--muted); }
+    input, select, button{ width:100%; padding:0.6rem 0.7rem; border-radius:8px; border:1px solid #31415f; background:#0d1324; color:var(--text); }
+    input[type="number"]{ appearance:textfield; }
+    button{ cursor:pointer; background:linear-gradient(180deg,#0ea5e9,#0f766e); border:0; font-weight:600; }
+    button.secondary{ background:#0d1324; border:1px solid #31415f; }
+    button.danger{ background:#0d1324; border:1px solid #412c2c; color:#ffb3b3; }
+    .muted{ color:var(--muted); }
+    table{ width:100%; border-collapse:collapse; font-size:0.92rem; }
+    th, td{ border-bottom:1px solid #24324f; padding:0.5rem; text-align:left; }
+    thead th{ position:sticky; top:0; background:#0d1324; }
+    .pill{ display:inline-block; padding:0.15rem 0.45rem; border-radius:999px; background:#12233b; color:#86c5ff; font-size:0.8rem; }
+    .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .center{ text-align:center; }
+    .right{ text-align:right; }
+    .spacer{ height:0.75rem; }
+    footer{ padding:2rem 1rem; color:var(--muted); text-align:center; }
+    .warn{ background:#261a1a; border:1px solid #5c2d2d; color:#ffdbdb; padding:0.75rem; border-radius:8px; }
+    .ok{ background:#16251f; border:1px solid #285a43; color:#cde8d7; padding:0.75rem; border-radius:8px; }
+    .hidden{ display:none; }
   </style>
 </head>
 <body>
   <header>
-    <div style="display:flex;align-items:center;gap:.6rem;">
-      <img src="icons/icon-192.png" alt="Ikona" width="40" height="40" />
-      <h1>Tabulka porcí</h1>
-      <span id="statusBadge" class="badge">Inicializace…</span>
-    </div>
-    <div class="actions">
-      <button id="installBtn" hidden>Instalovat</button>
-      <button id="saveHistoryBtn">Uložit do historie</button>
-      <button id="exportBtn">Exportovat JSON</button>
-      <input id="importFile" type="file" accept="application/json" hidden />
-      <button id="importBtn">Importovat JSON</button>
-    </div>
+    <h1>Rozpočet směsi & suroviny <span class="pill">PWA</span></h1>
+    <div class="sub">Nahrajte Excel (.xlsx/.xls) s listy <strong>Směs</strong> a <strong>Surovina</strong>, namapujte sloupce a spočítejte porce.</div>
   </header>
 
   <main>
     <section class="card">
-      <h2>Přísada</h2>
-      <div class="muted">Zadávejte <strong>Ingredienci</strong>, <strong>Množství (g)</strong> a <strong>Energie (kJ/100 g)</strong>. Pro nutriční omezení můžete doplnit <strong>Bílkoviny, Sacharidy, Tuky, Vlákninu (g/100 g)</strong>. Zaokrouhlení: 1–2 desetinná místa.</div>
-      <div class="actions" style="margin:.5rem 0;">
-        <button id="addIngredientBtn">Přidat přísadu</button>
-        <button id="clearIngredientsBtn">Vymazat všechny</button>
-      </div>
-      <table id="ingredientsTable">
-        <thead>
-          <tr>
-            <th>Ingredience</th>
-            <th>Množství (g)</th>
-            <th>kJ / 100 g</th>
-            <th>kJ přísady</th>
-            <th>% z reálné</th>
-            <th>g/porci (z reálné)</th>
-            <th>Max g (pro optimalizaci)</th>
-            <th>Bílkoviny (g/100 g)</th>
-            <th>Sacharidy (g/100 g)</th>
-            <th>Tuky (g/100 g)</th>
-            <th>Vláknina (g/100 g)</th>
-            <th>Akce</th>
-          </tr>
-        </thead>
-        <tbody id="ingredientsBody"></tbody>
-        <tfoot>
-          <tr>
-            <td colspan="12">
-              <span id="ingredientsSummary" class="muted">Součet se zobrazí níže. Sloupce % z reálné a g/porci (z reálné) vycházejí z Reálné hmotnosti, pokud je zadána.</span>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </section>
-
-    <section class="card">
-      <h2>Směs & Porce</h2>
-      <div class="grid cols-3">
-        <div>
-          <label for="servings">Počet porcí</label>
-          <input id="servings" type="number" min="1" step="1" value="4" />
+      <div class="row">
+        <div class="col">
+          <label for="excelInput">Excel soubor (.xlsx / .xls)</label>
+          <input id="excelInput" type="file" accept=".xlsx,.xls" />
+          <div class="spacer"></div>
+          <button id="clearApp" class="danger">Vymazat vše (reset aplikace)</button>
         </div>
-        <div>
-          <label>Celková hmotnost směsi (g)</label>
-          <input id="totalMass" type="number" readonly />
-        </div>
-        <div>
-          <label for="realTotalMass">Reálná hmotnost směsi (g) <span class="muted">(volitelné)</span></label>
-          <input id="realTotalMass" type="number" min="0" step="0.1" placeholder="např. 975" />
-        </div>
-      </div>
-      <div class="grid cols-2" style="margin-top:.6rem;">
-        <div>
-          <div><strong>Hmotnost na porci (g):</strong> <span id="portionMass">0</span> <span id="portionMassSource" class="muted"></span></div>
-          <div><strong>Energie celé směsi (kJ):</strong> <span id="totalEnergy">0</span></div>
-          <div><strong>Energie na porci (kJ):</strong> <span id="perServingEnergy">0</span></div>
-        </div>
-        <div class="muted">
-          Pokud vyplníte <em>Reálnou hmotnost</em>, hmotnost porce se počítá z ní. Energie na porci se vždy odvozuje z přísad.
+        <div class="col">
+          <div class="ok">Data ani soubor nikam neodesíláme. Vše se zpracovává pouze ve vašem prohlížeči.</div>
+          <div class="spacer"></div>
+          <div class="muted">Tip: Poslední volby se ukládají do <strong>localStorage</strong> pro pohodlí při dalším použití.</div>
         </div>
       </div>
     </section>
 
     <section class="card">
-      <h2>Optimalizace (max kJ na porci)</h2>
-      <div class="grid cols-4">
+      <h2>Směs → rozdělení na porce</h2>
+      <div class="grid-2">
         <div>
-          <label for="optTotalMass">Celková hmotnost (g)</label>
-          <input id="optTotalMass" type="number" min="0" step="0.1" placeholder="prázdné = reálná / vypočtená" />
+          <label for="mixSheet">List (Směs)</label>
+          <select id="mixSheet"></select>
+          <div class="spacer"></div>
+          <label>Mapování sloupců</label>
+          <div class="row">
+            <div class="col">
+              <label for="mixColName">Sloupec s názvem položky</label>
+              <select id="mixColName"></select>
+            </div>
+            <div class="col">
+              <label for="mixColQty">Sloupec s množstvím (g)</label>
+              <select id="mixColQty"></select>
+            </div>
+          </div>
+          <div class="spacer"></div>
+          <label for="mixPortions">Počet porcí</label>
+          <input id="mixPortions" type="number" min="1" step="1" placeholder="např. 6" />
+          <div class="spacer"></div>
+          <button id="mixCompute">Spočítat porce</button>
         </div>
         <div>
-          <label for="optMaxProtein">Max bílkoviny (g)</label>
-          <input id="optMaxProtein" type="number" min="0" step="0.1" />
-        </div>
-        <div>
-          <label for="optMaxCarbs">Max sacharidy (g)</label>
-          <input id="optMaxCarbs" type="number" min="0" step="0.1" />
-        </div>
-        <div>
-          <label for="optMaxFat">Max tuky (g)</label>
-          <input id="optMaxFat" type="number" min="0" step="0.1" />
-        </div>
-        <div>
-          <label for="optMaxFiber">Max vláknina (g)</label>
-          <input id="optMaxFiber" type="number" min="0" step="0.1" />
+          <div class="muted">Náhled tabulky (prvních 50 řádků)</div>
+          <div id="mixPreview" style="max-height:300px; overflow:auto; border:1px solid #24324f; border-radius:8px;"></div>
         </div>
       </div>
-      <div class="muted" style="margin:.4rem 0;">Použijte u přísad sloupce g/100 g pro Bílkoviny, Sacharidy, Tuky, Vlákninu. Bez těchto hodnot nelze smysluplně vynucovat limity.</div>
-      <div class="actions" style="margin:.5rem 0;">
-        <button id="optimizeBtn">Optimalizovat</button>
-        <button id="applyOptimizationBtn" disabled>Použít návrh</button>
-      </div>
-      <div id="optimizationOutput" class="muted">Zde se zobrazí návrh gramáží, energie a makra (celkem a na porci).</div>
+      <div class="spacer"></div>
+      <div id="mixResult"></div>
     </section>
 
     <section class="card">
-      <h2>Historie</h2>
-      <div class="actions" style="margin:.4rem 0;">
-        <button id="refreshHistoryBtn">Načíst historii</button>
-        <button id="clearHistoryBtn">Smazat vše</button>
+      <h2>Surovina → rozdělení / výpočet porce</h2>
+      <div class="grid-2">
+        <div>
+          <label for="ingSheet">List (Surovina)</label>
+          <select id="ingSheet"></select>
+          <div class="spacer"></div>
+          <label>Mapování sloupců (volitelně)</label>
+          <div class="row">
+            <div class="col">
+              <label for="ingColTotal">Celková hmotnost (g)</label>
+              <select id="ingColTotal"></select>
+            </div>
+            <div class="col">
+              <label for="ingColPieces">Počet porcí</label>
+              <select id="ingColPieces"></select>
+            </div>
+            <div class="col">
+              <label for="ingColPortion">Cílová porce (g)</label>
+              <select id="ingColPortion"></select>
+            </div>
+          </div>
+          <div class="spacer"></div>
+          <label for="ingTotal">Celková hmotnost (g)</label>
+          <input id="ingTotal" type="number" step="0.01" placeholder="např. 1200" />
+          <div class="row">
+            <div class="col">
+              <label for="ingPieces">Počet porcí</label>
+              <input id="ingPieces" type="number" min="1" step="1" placeholder="např. 8" />
+            </div>
+            <div class="col">
+              <label for="ingPortion">Cílová porce (g)</label>
+              <input id="ingPortion" type="number" step="0.01" placeholder="např. 150" />
+            </div>
+          </div>
+          <div class="spacer"></div>
+          <button id="ingCompute">Výpočet</button>
+        </div>
+        <div>
+          <div class="muted">Náhled tabulky (prvních 50 řádků)</div>
+          <div id="ingPreview" style="max-height:300px; overflow:auto; border:1px solid #24324f; border-radius:8px;"></div>
+        </div>
       </div>
-      <div id="historyList" class="muted">Historie je prázdná.</div>
+      <div class="spacer"></div>
+      <div id="ingResult"></div>
     </section>
+
+    <section class="card">
+      <h2>Export & ukládání</h2>
+      <div class="row">
+        <div class="col">
+          <button id="exportMixCsv" class="secondary">Export směsi do CSV</button>
+        </div>
+        <div class="col">
+          <button id="exportIngCsv" class="secondary">Export suroviny do CSV</button>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="muted">Při exportu se použijí aktuální výsledky z výše uvedených výpočtů.</div>
+    </section>
+
+    <footer>
+      Vytvořeno pro GitHub Pages • Offline podpora přes Service Worker • Lokální zpracování Excelu přes SheetJS.
+    </footer>
   </main>
 
   <script>
-    // Utility: zaokrouhlení na 1–2 desetinná místa
-    function fmt(x) { const n = Number(x); if (!isFinite(n)) return '0'; const abs = Math.abs(n); const digits = abs < 10 ? 2 : 1; return n.toFixed(digits); }
+    // Pomocné formátování čísel pro české prostředí
+    const fmt = new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 2 });
 
-    // Ochrana fokusu při editaci
-    let __isEditingRow = false;
+    // Stav aplikace (uchovává se i v localStorage)
+    const state = {
+      workbook: null,
+      sheets: [],
+      mix: { sheet: null, colName: null, colQty: null, portions: null, items: [], result: [] },
+      ing: { sheet: null, colTotal: null, colPieces: null, colPortion: null, total: null, pieces: null, portion: null, result: null }
+    };
 
-    // Stav aplikace
-    const state = { mix:{ servings:4, totalMass_g:0, realTotalMass_g:null }, ingredients:[], energy:{ total_kJ:0, perServing_kJ:0 }, optimization:{ suggestion:null } };
+    // Načtení stavu z localStorage
+    (function restoreState(){
+      const s = localStorage.getItem('pwa-mix-ing-state');
+      if(s){ try{ Object.assign(state, JSON.parse(s)); }catch(e){} }
+    })();
 
-    // DOM refs
-    const ingredientsBody = document.getElementById('ingredientsBody');
-    const ingredientsSummary = document.getElementById('ingredientsSummary');
-    const servingsInput = document.getElementById('servings');
-    const totalMassInput = document.getElementById('totalMass');
-    const realTotalMassInput = document.getElementById('realTotalMass');
-    const portionMassSpan = document.getElementById('portionMass');
-    const portionMassSource = document.getElementById('portionMassSource');
-    const totalEnergySpan = document.getElementById('totalEnergy');
-    const perServingEnergySpan = document.getElementById('perServingEnergy');
-    const optimizationOutput = document.getElementById('optimizationOutput');
-    const applyOptimizationBtn = document.getElementById('applyOptimizationBtn');
+    function saveState(){ localStorage.setItem('pwa-mix-ing-state', JSON.stringify(state)); }
 
-    function ingredientEnergy(it){ const m=Number(it.mass_g)||0; const ekj100=Number(it.energy_kJ_per_100g)||0; return m*ekj100/100; }
+    // UI elementy
+    const el = {
+      excelInput: document.getElementById('excelInput'),
+      clearApp: document.getElementById('clearApp'),
+      mixSheet: document.getElementById('mixSheet'),
+      mixColName: document.getElementById('mixColName'),
+      mixColQty: document.getElementById('mixColQty'),
+      mixPortions: document.getElementById('mixPortions'),
+      mixCompute: document.getElementById('mixCompute'),
+      mixPreview: document.getElementById('mixPreview'),
+      mixResult: document.getElementById('mixResult'),
+      ingSheet: document.getElementById('ingSheet'),
+      ingColTotal: document.getElementById('ingColTotal'),
+      ingColPieces: document.getElementById('ingColPieces'),
+      ingColPortion: document.getElementById('ingColPortion'),
+      ingTotal: document.getElementById('ingTotal'),
+      ingPieces: document.getElementById('ingPieces'),
+      ingPortion: document.getElementById('ingPortion'),
+      ingCompute: document.getElementById('ingCompute'),
+      ingPreview: document.getElementById('ingPreview'),
+      ingResult: document.getElementById('ingResult'),
+      exportMixCsv: document.getElementById('exportMixCsv'),
+      exportIngCsv: document.getElementById('exportIngCsv'),
+    };
 
-    function recompute(){
-      const totalMass = state.ingredients.reduce((s,it)=>s+(Number(it.mass_g)||0),0); state.mix.totalMass_g=totalMass;
-      const total_kJ = state.ingredients.reduce((s,it)=>s+ingredientEnergy(it),0); state.energy.total_kJ=total_kJ;
-      const servings = Math.max(1, Number(servingsInput.value)||1); state.mix.servings=servings; state.energy.perServing_kJ = total_kJ/servings;
-      const realMass = Number(realTotalMassInput.value); const baseMass = (realMass>0)?realMass:totalMass; const source=(realMass>0)?'(z reálné hmotnosti)':'(ze součtu přísad)';
-      portionMassSpan.textContent = fmt(baseMass/servings); portionMassSource.textContent = source; totalMassInput.value = fmt(totalMass); totalEnergySpan.textContent = fmt(total_kJ); perServingEnergySpan.textContent = fmt(state.energy.perServing_kJ);
-      ingredientsSummary.textContent = `Přísad: ${state.ingredients.length}, Součet g: ${fmt(totalMass)}, Součet kJ: ${fmt(total_kJ)}`;
-    }
-
-    function updateComputedForRow(it, tr) {
-      const kjCell = tr.querySelector('.kjItem');
-      if (kjCell) kjCell.textContent = fmt(ingredientEnergy(it));
-      const realMass = Number(realTotalMassInput.value);
-      const servings = Math.max(1, Number(servingsInput.value) || 1);
-      const totalMass = state.mix.totalMass_g || 0;
-      const baseMass = (realMass > 0) ? realMass : totalMass;
-      const share = (Number(it.mass_g)||0) / (totalMass || 1e-9);
-      const percentReal = (Number(it.mass_g)||0) / ((baseMass) || 1e-9) * 100;
-      const gPerPortionReal = share * (baseMass / servings);
-      const pCell = tr.querySelector('.percentReal');
-      const gCell = tr.querySelector('.gPerPortionReal');
-      if (pCell) pCell.textContent = isFinite(percentReal) ? (fmt(percentReal) + ' %') : '—';
-      if (gCell) gCell.textContent = isFinite(gPerPortionReal) ? fmt(gPerPortionReal) : '—';
-    }
-
-    function refreshAllRowsComputed() {
-      const rows = ingredientsBody.querySelectorAll('tr');
-      rows.forEach((tr, i) => { const it = state.ingredients[i]; if (it) updateComputedForRow(it, tr); });
-    }
-
-    function renderIngredientRow(it, idx){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input type="text" value="${it.name||''}" data-idx="${idx}" data-field="name" /></td>
-        <td><input type="number" min="0" step="0.1" value="${it.mass_g??''}" data-idx="${idx}" data-field="mass_g" /></td>
-        <td><input type="number" min="0" step="0.1" value="${it.energy_kJ_per_100g??''}" data-idx="${idx}" data-field="energy_kJ_per_100g" /></td>
-        <td><span class="kjItem">${fmt(ingredientEnergy(it))}</span></td>
-        <td><span class="percentReal"></span></td>
-        <td><span class="gPerPortionReal"></span></td>
-        <td><input type="number" min="0" step="0.1" value="${it.max_g??''}" placeholder="např. 500" data-idx="${idx}" data-field="max_g" /></td>
-        <td><input type="number" min="0" step="0.1" value="${it.protein_g_per_100g??''}" data-idx="${idx}" data-field="protein_g_per_100g" /></td>
-        <td><input type="number" min="0" step="0.1" value="${it.carbs_g_per_100g??''}" data-idx="${idx}" data-field="carbs_g_per_100g" /></td>
-        <td><input type="number" min="0" step="0.1" value="${it.fat_g_per_100g??''}" data-idx="${idx}" data-field="fat_g_per_100g" /></td>
-        <td><input type="number" min="0" step="0.1" value="${it.fiber_g_per_100g??''}" data-idx="${idx}" data-field="fiber_g_per_100g" /></td>
-        <td class="actions"><button data-idx="${idx}" data-action="dup">Duplikovat</button><button data-idx="${idx}" data-action="del">Smazat</button></td>`;
-
-      // Input handlers – bez plného renderu
-      tr.querySelectorAll('input').forEach(inp => {
-        inp.addEventListener('input', () => {
-          __isEditingRow = true;
-          const i = Number(inp.dataset.idx);
-          const field = inp.dataset.field;
-          let val = inp.value;
-          if (field !== 'name') val = val === '' ? null : Number(val);
-          state.ingredients[i][field] = val;
-          recompute();
-          updateComputedForRow(state.ingredients[i], tr);
-          __isEditingRow = false;
-        });
-      });
-
-      // Akce – mohou měnit strukturu, tady je render správně
-      tr.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const i = Number(btn.dataset.idx);
-          const act = btn.dataset.action;
-          if (act === 'del') {
-            state.ingredients.splice(i, 1);
-          } else if (act === 'dup') {
-            const copy = JSON.parse(JSON.stringify(state.ingredients[i]));
-            state.ingredients.splice(i + 1, 0, copy);
-          }
-          recompute();
-          render();
-        });
-      });
-
-      // Inicializace výpočtů v řádku
-      updateComputedForRow(it, tr);
-      return tr;
-    }
-
-    function render(){
-      if (__isEditingRow) return; // během psaní nic nepřekresluj
-      ingredientsBody.innerHTML = '';
-      state.ingredients.forEach((it, idx) => { ingredientsBody.appendChild(renderIngredientRow(it, idx)); });
-    }
-
-    // Přidání / mazání všech
-    document.getElementById('addIngredientBtn').addEventListener('click', () => { state.ingredients.push({ name:'', mass_g:null, energy_kJ_per_100g:null, max_g:null, protein_g_per_100g:null, carbs_g_per_100g:null, fat_g_per_100g:null, fiber_g_per_100g:null }); render(); });
-    document.getElementById('clearIngredientsBtn').addEventListener('click', () => { if (confirm('Opravdu vymazat všechny přísady?')) { state.ingredients = []; recompute(); render(); } });
-
-    // Změna porcí / reálné hmotnosti – jen přepočítat
-    servingsInput.addEventListener('input', () => { __isEditingRow = true; recompute(); refreshAllRowsComputed(); __isEditingRow = false; });
-    realTotalMassInput.addEventListener('input', () => { __isEditingRow = true; recompute(); refreshAllRowsComputed(); __isEditingRow = false; });
-
-    // Optimalizace – jen MAX omezení
-    function optimize(){
-      let targetMass = Number(document.getElementById('optTotalMass').value);
-      const realMass = Number(realTotalMassInput.value);
-      if(!(targetMass>0)) targetMass = (realMass>0)? realMass : state.mix.totalMass_g;
-      if(!(targetMass>0)) { alert('Zadejte celkovou hmotnost (reálnou nebo v Optimalizaci).'); return null; }
-      const maxProt=Number(document.getElementById('optMaxProtein').value)||null;
-      const maxCarb=Number(document.getElementById('optMaxCarbs').value)||null;
-      const maxFat =Number(document.getElementById('optMaxFat').value)||null;
-      const maxFib =Number(document.getElementById('optMaxFiber').value)||null;
-
-      const items = state.ingredients.map(it=>({
-        name: it.name||'',
-        ed: (Number(it.energy_kJ_per_100g)||0)/100, // kJ/g
-        maxg: (Number(it.max_g)||0)>0? Number(it.max_g) : (Number(it.mass_g)||0),
-        pDen: (Number(it.protein_g_per_100g)||0)/100,
-        cDen: (Number(it.carbs_g_per_100g)||0)/100,
-        fDen: (Number(it.fat_g_per_100g)||0)/100,
-        fiDen:(Number(it.fiber_g_per_100g)||0)/100
-      }));
-
-      items.sort((a,b)=>b.ed-a.ed);
-      let remaining=targetMass;
-      const alloc = items.map(it=>({name:it.name,g:0,ed:it.ed,pDen:it.pDen,cDen:it.cDen,fDen:it.fDen,fiDen:it.fiDen}));
-      for(let i=0;i<items.length&&remaining>0;i++){ const take=Math.min(items[i].maxg, remaining); alloc[i].g=take; remaining-=take; }
-
-      function totals(a){ let mass=0,energy=0,p=0,c=0,f=0,fi=0; for(const x of a){ mass+=x.g; energy+=x.g*x.ed; p+=x.g*x.pDen; c+=x.g*x.cDen; f+=x.g*x.fDen; fi+=x.g*x.fiDen;} return {mass,energy,p,c,f,fi}; }
-      function reduceMacro(a, getDen, targetMax){ if(!(targetMax>0)) return; let t=totals(a), guard=0; while(t.mass>0 && getDen(t)>targetMax && guard++<2000){ let idx=-1,best=-1; for(let i=0;i<a.length;i++){ const den=getDen({p:a[i].pDen,c:a[i].cDen,f:a[i].fDen,fi:a[i].fiDen}); if(a[i].g>0 && den>best){best=den; idx=i;} } if(idx<0) break; const cur=totals(a); const over=getDen(cur)-targetMax; const denVal=getDen({p=a[idx].pDen,c=a[idx].cDen,f=a[idx].fDen,fi=a[idx].fiDen})||1e-6; const delta=Math.min(a[idx].g, over/denVal, 5); if(!(delta>0)) break; a[idx].g-=delta; t=totals(a);} }
-
-      reduceMacro(alloc,(t)=>t.f,maxFat); reduceMacro(alloc,(t)=>t.p,maxProt); reduceMacro(alloc,(t)=>t.c,maxCarb); reduceMacro(alloc,(t)=>t.fi,maxFib);
-
-      const t=totals(alloc); const perServing = t.energy / Math.max(1, Number(servingsInput.value)||1);
-      return { alloc, totals:t, perServing_kJ: perServing };
-    }
-
-    document.getElementById('optimizeBtn').addEventListener('click',()=>{
-      const res=optimize(); if(!res) return; state.optimization.suggestion=res;
-      const lines=res.alloc.map(x=>`${x.name||'Položka'}: ${fmt(x.g)} g`);
-      const macros=`\nBílkoviny: ${fmt(res.totals.p)} g, Sacharidy: ${fmt(res.totals.c)} g, Tuky: ${fmt(res.totals.f)} g, Vláknina: ${fmt(res.totals.fi)} g`;
-      optimizationOutput.innerHTML = `<div><strong>Návrh gramáží</strong></div><div>${lines.join('<br>')}</div><div style=\"margin-top:.4rem;\"><strong>Energie celé směsi:</strong> ${fmt(res.totals.energy)} kJ, <strong>kJ/porci:</strong> ${fmt(res.perServing_kJ)}${macros}</div>`;
-      applyOptimizationBtn.disabled=false;
+    // Reset aplikace
+    el.clearApp.addEventListener('click', () => {
+      localStorage.removeItem('pwa-mix-ing-state');
+      location.reload();
     });
 
-    applyOptimizationBtn.addEventListener('click',()=>{
-      const sug=state.optimization.suggestion; if(!sug) return; const map=new Map(); for(const s of sug.alloc){ const key=(s.name||'').trim().toLowerCase(); map.set(key+':'+s.ed.toFixed(6), s.g);} for(const it of state.ingredients){ const key=((it.name||'').trim().toLowerCase())+':'+(((Number(it.energy_kJ_per_100g)||0)/100).toFixed(6)); const g=map.get(key); if(typeof g==='number') it.mass_g=Number(fmt(g)); } recompute(); render(); applyOptimizationBtn.disabled=true; alert('Návrh byl aplikován.'); });
+    // Načtení Excelu
+    el.excelInput.addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      if(!file) return;
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+      state.workbook = wb;
+      state.sheets = wb.SheetNames;
+      saveState();
+      populateSheetSelectors();
+      renderPreviews();
+      // Pokus o automatickou volbu listů
+      autoPickDefaultSheets();
+    });
 
-    // IndexedDB – historie
-    function txDone(tx){return new Promise((res,rej)=>{tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error);});}
-    const DB_NAME='tabulka-porci-db'; const DB_VER=2; const STORE='history';
-    function openDb(){ return new Promise((resolve,reject)=>{ const req=indexedDB.open(DB_NAME, DB_VER); req.onupgradeneeded=(e)=>{ const db=e.target.result; if(!db.objectStoreNames.contains(STORE)){ db.createObjectStore(STORE,{keyPath:'id',autoIncrement:true}); } }; req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error); }); }
-    async function addHistoryEntry(){ const db=await openDb(); const tx=db.transaction(STORE,'readwrite'); const store=tx.objectStore(STORE); const entry={ ts:new Date().toISOString(), mix:{ servings:state.mix.servings, totalMass_g:state.mix.totalMass_g, realTotalMass_g:Number(realTotalMassInput.value)||null }, ingredients: state.ingredients.map(it=>({ name:it.name, mass_g:Number(it.mass_g)||0, energy_kJ_per_100g:Number(it.energy_kJ_per_100g)||0, max_g:(Number(it.max_g)||null), protein_g_per_100g:(Number(it.protein_g_per_100g)||null), carbs_g_per_100g:(Number(it.carbs_g_per_100g)||null), fat_g_per_100g:(Number(it.fat_g_per_100g)||null), fiber_g_per_100g:(Number(it.fiber_g_per_100g)||null) })), energy:{ total_kJ:state.energy.total_kJ, perServing_kJ:state.energy.perServing_kJ } }; store.add(entry); await txDone(tx); db.close(); }
-    async function getAllHistory(){ const db=await openDb(); const tx=db.transaction(STORE,'readonly'); const store=tx.objectStore(STORE); const req=store.getAll(); const data=await new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); await txDone(tx); db.close(); return data||[]; }
-    async function clearHistory(){ const db=await openDb(); const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).clear(); await txDone(tx); db.close(); }
-    const historyList=document.getElementById('historyList');
-    function renderHistoryList(items){ if(!items||items.length===0){ historyList.textContent='Historie je prázdná.'; return;} const container=document.createElement('div'); items.sort((a,b)=>(a.id||0)-(b.id||0)); for(const h of items){ const div=document.createElement('div'); div.className='card'; const ingCount=(h.ingredients||[]).length; div.innerHTML=`<div><strong>${new Date(h.ts).toLocaleString()}</strong> — Přísad: ${ingCount}, kJ/porci: ${fmt(h.energy?.perServing_kJ||0)}</div>`; const actions=document.createElement('div'); actions.className='actions'; const loadBtn=document.createElement('button'); loadBtn.textContent='Načíst'; const delBtn=document.createElement('button'); delBtn.textContent='Smazat'; actions.appendChild(loadBtn); actions.appendChild(delBtn); div.appendChild(actions); loadBtn.addEventListener('click',()=>{ state.ingredients=(h.ingredients||[]).map(it=>({ name:it.name, mass_g:it.mass_g, energy_kJ_per_100g:it.energy_kJ_per_100g, max_g:it.max_g, protein_g_per_100g:it.protein_g_per_100g, carbs_g_per_100g:it.carbs_g_per_100g, fat_g_per_100g:it.fat_g_per_100g, fiber_g_per_100g:it.fiber_g_per_100g })); servingsInput.value=h.mix?.servings||1; realTotalMassInput.value=h.mix?.realTotalMass_g||''; recompute(); render(); }); delBtn.addEventListener('click', async()=>{ const dbDel=await openDb(); const txDel=dbDel.transaction(STORE,'readwrite'); txDel.objectStore(STORE).delete(h.id); await txDone(txDel); dbDel.close(); document.getElementById('refreshHistoryBtn').click(); }); container.appendChild(div);} historyList.innerHTML=''; historyList.appendChild(container);}    
-    document.getElementById('saveHistoryBtn').addEventListener('click', async()=>{ await addHistoryEntry(); alert('Uloženo do historie.'); });
-    document.getElementById('refreshHistoryBtn').addEventListener('click', async()=>{ const items=await getAllHistory(); renderHistoryList(items); });
-    document.getElementById('clearHistoryBtn').addEventListener('click', async()=>{ if(!confirm('Opravdu smazat celou historii?')) return; await clearHistory(); document.getElementById('refreshHistoryBtn').click(); });
+    function autoPickDefaultSheets(){
+      const names = state.sheets.map(s => s.toLowerCase());
+      const mixIdx = names.findIndex(n => n.includes('směs'));
+      const ingIdx = names.findIndex(n => n.includes('surovina'));
+      if(mixIdx >= 0) { el.mixSheet.selectedIndex = mixIdx; state.mix.sheet = state.sheets[mixIdx]; }
+      if(ingIdx >= 0) { el.ingSheet.selectedIndex = ingIdx; state.ing.sheet = state.sheets[ingIdx]; }
+      saveState();
+      updateColumnMappings();
+    }
 
-    // Export/Import JSON
-    document.getElementById('exportBtn').addEventListener('click', async()=>{ const items=await getAllHistory(); const blob=new Blob([JSON.stringify(items,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tabulka-porci-historie.json'; a.click(); URL.revokeObjectURL(url); });
-    document.getElementById('importBtn').addEventListener('click',()=>{ document.getElementById('importFile').click(); });
-    document.getElementById('importFile').addEventListener('change', async(e)=>{ const file=e.target.files[0]; if(!file)return; const text=await file.text(); try{ const items=JSON.parse(text); const db=await openDb(); const tx=db.transaction(STORE,'readwrite'); const store=tx.objectStore(STORE); for(const it of items){ const {id, ...rest}=it; store.add(rest);} await txDone(tx); db.close(); alert('Import dokončen.'); document.getElementById('refreshHistoryBtn').click(); }catch(err){ alert('Import selhal: '+err); } });
+    function populateSheetSelectors(){
+      function fill(selectEl){
+        selectEl.innerHTML = '';
+        state.sheets.forEach((name, idx) => {
+          const opt = document.createElement('option');
+          opt.value = name; opt.textContent = name; selectEl.appendChild(opt);
+        });
+      }
+      fill(el.mixSheet);
+      fill(el.ingSheet);
+      // Obnova volby
+      if(state.mix.sheet){ el.mixSheet.value = state.mix.sheet; }
+      if(state.ing.sheet){ el.ingSheet.value = state.ing.sheet; }
+      el.mixSheet.addEventListener('change', () => { state.mix.sheet = el.mixSheet.value; saveState(); updateColumnMappings(); renderPreviews(); });
+      el.ingSheet.addEventListener('change', () => { state.ing.sheet = el.ingSheet.value; saveState(); updateColumnMappings(); renderPreviews(); });
+    }
 
-    // Service Worker & Install
-    const statusBadge=document.getElementById('statusBadge');
-    if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').then(()=>{ statusBadge.textContent='SW aktivní'; }).catch(err=>{ statusBadge.textContent='SW chyba'; console.error(err); }); }); } else { statusBadge.textContent='SW nepodporován'; }
-    let deferredPrompt; const installBtn=document.getElementById('installBtn');
-    window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; installBtn.hidden=false; });
-    installBtn.addEventListener('click', async()=>{ installBtn.hidden=true; if(!deferredPrompt) return; deferredPrompt.prompt(); const { outcome }=await deferredPrompt.userChoice; deferredPrompt=null; console.log('Instalace:', outcome); });
+    function sheetToJson(sheetName){
+      if(!state.workbook) return [];
+      const ws = state.workbook.Sheets[sheetName];
+      if(!ws) return [];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true });
+      // První řádek jako hlavička, zbytek data
+      const headers = (rows[0] || []).map(h => String(h||'').trim());
+      const data = rows.slice(1).map(r => Object.fromEntries(headers.map((h,i) => [h, r[i]])));
+      return { headers, data };
+    }
 
-    // Init
-    recompute(); render();
+    function renderPreviews(){
+      // Směs preview
+      el.mixPreview.innerHTML = '';
+      if(state.mix.sheet){ const {headers, data} = sheetToJson(state.mix.sheet); el.mixPreview.appendChild(makeTable(headers, data.slice(0,50))); }
+      // Surovina preview
+      el.ingPreview.innerHTML = '';
+      if(state.ing.sheet){ const {headers, data} = sheetToJson(state.ing.sheet); el.ingPreview.appendChild(makeTable(headers, data.slice(0,50))); }
+    }
+
+    function updateColumnMappings(){
+      function fillCols(selectEl, headers, remembered){
+        selectEl.innerHTML = '';
+        headers.forEach(h => { const opt = document.createElement('option'); opt.value = h; opt.textContent = h||'(prázdný)'; selectEl.appendChild(opt); });
+        if(remembered && headers.includes(remembered)) selectEl.value = remembered;
+      }
+      if(state.mix.sheet){ const {headers} = sheetToJson(state.mix.sheet); fillCols(el.mixColName, headers, state.mix.colName); fillCols(el.mixColQty, headers, state.mix.colQty); }
+      if(state.ing.sheet){ const {headers} = sheetToJson(state.ing.sheet); fillCols(el.ingColTotal, headers, state.ing.colTotal); fillCols(el.ingColPieces, headers, state.ing.colPieces); fillCols(el.ingColPortion, headers, state.ing.colPortion); }
+      el.mixColName.addEventListener('change', () => { state.mix.colName = el.mixColName.value; saveState(); });
+      el.mixColQty.addEventListener('change', () => { state.mix.colQty = el.mixColQty.value; saveState(); });
+      el.ingColTotal.addEventListener('change', () => { state.ing.colTotal = el.ingColTotal.value; saveState(); });
+      el.ingColPieces.addEventListener('change', () => { state.ing.colPieces = el.ingColPieces.value; saveState(); });
+      el.ingColPortion.addEventListener('change', () => { state.ing.colPortion = el.ingColPortion.value; saveState(); });
+    }
+
+    function makeTable(headers, rows){
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const htr = document.createElement('tr');
+      headers.forEach(h => { const th = document.createElement('th'); th.textContent = h || ''; htr.appendChild(th); });
+      thead.appendChild(htr); table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        headers.forEach(h => { const td = document.createElement('td'); td.textContent = r[h]===undefined?'':String(r[h]); tr.appendChild(td); });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      return table;
+    }
+
+    // Výpočet směsi → porce
+    el.mixCompute.addEventListener('click', () => {
+      if(!state.mix.sheet){ return alert('Vyberte list Směs.'); }
+      const portions = parseInt(el.mixPortions.value || state.mix.portions || '0', 10);
+      if(!portions || portions <= 0) return alert('Zadejte platný počet porcí.');
+      state.mix.portions = portions;
+      const { headers, data } = sheetToJson(state.mix.sheet);
+      const colName = el.mixColName.value; const colQty = el.mixColQty.value;
+      if(!colName || !colQty) return alert('Namapujte sloupce s názvem a množstvím.');
+      const items = data.map(row => ({
+        name: String(row[colName]||'').trim(),
+        qty: Number(row[colQty]||0)
+      })).filter(x => x.name && !isNaN(x.qty));
+      state.mix.items = items;
+      const total = items.reduce((s,x)=>s+(x.qty||0),0);
+      const perPortionTotal = total / portions;
+      const result = items.map(x => ({ name:x.name, qty:x.qty, perPortion:x.qty/portions }));
+      state.mix.result = { items: result, portions, total, perPortionTotal };
+      saveState();
+      renderMixResult();
+    });
+
+    function renderMixResult(){
+      const box = el.mixResult; box.innerHTML='';
+      if(!state.mix.result){ box.innerHTML = '<div class="warn">Nejsou k dispozici výsledky směsi.</div>'; return; }
+      const {items, portions, total, perPortionTotal} = state.mix.result;
+      const summary = document.createElement('div');
+      summary.className = 'ok';
+      summary.innerHTML = `Počet porcí: <strong>${portions}</strong> • Celkem: <strong>${fmt.format(total)} g</strong> • Na porci: <strong>${fmt.format(perPortionTotal)} g</strong>`;
+      box.appendChild(summary);
+      const headers = ['Položka','Množství (g)','Na porci (g)'];
+      const table = document.createElement('table');
+      const thead = document.createElement('thead'); const htr = document.createElement('tr');
+      headers.forEach(h=>{ const th=document.createElement('th'); th.textContent=h; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      items.forEach(x => {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = x.name; tr.appendChild(td1);
+        const td2 = document.createElement('td'); td2.className='right'; td2.textContent = fmt.format(x.qty); tr.appendChild(td2);
+        const td3 = document.createElement('td'); td3.className='right'; td3.textContent = fmt.format(x.perPortion); tr.appendChild(td3);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      box.appendChild(document.createElement('div')).className='spacer';
+      box.appendChild(table);
+    }
+
+    // Výpočet suroviny
+    el.ingCompute.addEventListener('click', () => {
+      let total = parseFloat(el.ingTotal.value || state.ing.total || '');
+      let pieces = parseInt(el.ingPieces.value || state.ing.pieces || '');
+      let portion = parseFloat(el.ingPortion.value || state.ing.portion || '');
+
+      // Pokud je vybrán list, pokusíme se načíst první platnou hodnotu z mapovaného sloupce
+      if(state.ing.sheet){
+        const {headers, data} = sheetToJson(state.ing.sheet);
+        function firstNumeric(col){ if(!col||!headers.includes(col)) return undefined; const v = data.map(r => r[col]).find(x => x!==undefined && x!=='' && !isNaN(Number(x))); return v!==undefined?Number(v):undefined; }
+        if(isNaN(total)) total = firstNumeric(el.ingColTotal.value) ?? total;
+        if(isNaN(pieces)) pieces = (function(){ const v = firstNumeric(el.ingColPieces.value); return (v!==undefined?parseInt(v,10):undefined); })() ?? pieces;
+        if(isNaN(portion)) portion = firstNumeric(el.ingColPortion.value) ?? portion;
+      }
+      state.ing.total = total; state.ing.pieces = pieces; state.ing.portion = portion;
+      // Logika: pokud máme total & pieces → portionSize; pokud máme total & portion → pieces; pokud máme vše → kontrola konzistence
+      let result = {};
+      if(total>0 && pieces>0){ result.portionFromPieces = total / pieces; }
+      if(total>0 && portion>0){ result.piecesFromPortion = Math.floor(total / portion); result.remainder = total % portion; }
+      if(total>0 && pieces>0 && portion>0){ result.delta = Math.abs((total/pieces) - portion); }
+      state.ing.result = result; saveState(); renderIngResult();
+    });
+
+    function renderIngResult(){
+      const box = el.ingResult; box.innerHTML='';
+      const r = state.ing.result || {};
+      const summary = document.createElement('div'); summary.className='ok';
+      const parts = [];
+      if(state.ing.total){ parts.push(`Celkem: <strong>${fmt.format(state.ing.total)} g</strong>`); }
+      if(state.ing.pieces){ parts.push(`Počet porcí: <strong>${state.ing.pieces}</strong>`); }
+      if(state.ing.portion){ parts.push(`Cílová porce: <strong>${fmt.format(state.ing.portion)} g</strong>`); }
+      summary.innerHTML = parts.join(' • ') || 'Zadejte vstupy výše a spusťte výpočet.';
+      box.appendChild(summary);
+      box.appendChild(document.createElement('div')).className='spacer';
+      const table = document.createElement('table');
+      const thead = document.createElement('thead'); const htr = document.createElement('tr');
+      ['Výsledek','Hodnota'].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; htr.appendChild(th); }); thead.appendChild(htr); table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      if(r.portionFromPieces){ addRow('Porce (g) z počtu porcí', fmt.format(r.portionFromPieces)); }
+      if(r.piecesFromPortion){ addRow('Počet porcí z cílové porce', String(r.piecesFromPortion)); }
+      if(r.remainder!==undefined){ addRow('Zbytek (g) po rozdělení na cílové porce', fmt.format(r.remainder)); }
+      if(r.delta!==undefined){ addRow('Odchylka mezi výpočty (g)', fmt.format(r.delta)); }
+      function addRow(a,b){ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=a; const td2=document.createElement('td'); td2.className='right'; td2.textContent=b; tr.appendChild(td1); tr.appendChild(td2); tbody.appendChild(tr); }
+      table.appendChild(tbody); box.appendChild(table);
+    }
+
+    // Export CSV
+    el.exportMixCsv.addEventListener('click', () => {
+      if(!state.mix.result){ return alert('Nejprve spočítejte směs.'); }
+      const rows = [['Položka','Množství (g)','Na porci (g)']].concat(state.mix.result.items.map(x => [x.name, x.qty, x.perPortion]));
+      downloadCsv(rows, 'smes.csv');
+    });
+    el.exportIngCsv.addEventListener('click', () => {
+      if(!state.ing.result){ return alert('Nejprve spočítejte surovinu.'); }
+      const r = state.ing.result; const rows = [['Výsledek','Hodnota']];
+      if(r.portionFromPieces){ rows.push(['Porce (g) z počtu porcí', r.portionFromPieces]); }
+      if(r.piecesFromPortion){ rows.push(['Počet porcí z cílové porce', r.piecesFromPortion]); }
+      if(r.remainder!==undefined){ rows.push(['Zbytek (g)', r.remainder]); }
+      if(r.delta!==undefined){ rows.push(['Odchylka (g)', r.delta]); }
+      downloadCsv(rows, 'surovina.csv');
+    });
+
+    function downloadCsv(rows, filename){
+      const csv = rows.map(r => r.map(v => '"'+String(v).replace('"','\"')+'"').join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // Registrace Service Workeru
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
+    }
   </script>
 </body>
 </html>
