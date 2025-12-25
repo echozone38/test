@@ -31,7 +31,6 @@
     .right{ text-align:right; }
     .ok{ background:#16251f; border:1px solid #285a43; color:#cde8d7; padding:0.75rem; border-radius:8px; }
     .warn{ background:#261a1a; border:1px solid #5c2d2d; color:#ffdbdb; padding:0.75rem; border-radius:8px; }
-    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
     footer{ padding:2rem 1rem; color:var(--muted); text-align:center; }
     .pill{ display:inline-block; padding:0.15rem 0.45rem; border-radius:999px; background:#12233b; color:#86c5ff; font-size:0.8rem; }
     .cells{ font-size:0.85rem; color:#86c5ff; }
@@ -56,41 +55,41 @@
 
     <section class="card">
       <h2>Podíly → Poměry → Porce</h2>
-      <div class="muted">Upravte podíl (%) pro každého. Poměr = podíl/100. Porce = F1 / (součet poměrů) × poměr.</div>
+      <div class="muted">Sloupce přeuspořádány: <strong>Porce</strong> • <strong>Poměr</strong> • <strong>Podíl (%)</strong>.</div>
       <div class="spacer"></div>
       <table>
         <thead>
           <tr>
             <th>Osoba</th>
-            <th class="right">Podíl (%) <span class="cells">(F5,G5,H5,I5)</span></th>
-            <th class="right">Poměr <span class="cells">(F4,G4,H4,I4)</span></th>
             <th class="right">Porce (g) <span class="cells">(F3,G3,H3,I3)</span></th>
+            <th class="right">Poměr <span class="cells">(F4,G4,H4,I4)</span></th>
+            <th class="right">Podíl (%) <span class="cells">(F5,G5,H5,I5)</span></th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>Kája</td>
-            <td class="right"><input id="shareK" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
-            <td class="right" id="ratioK">0</td>
             <td class="right" id="portionK">0</td>
+            <td class="right" id="ratioK">0</td>
+            <td class="right"><input id="shareK" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
           </tr>
           <tr>
             <td>Máša</td>
-            <td class="right"><input id="shareM" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
-            <td class="right" id="ratioM">0</td>
             <td class="right" id="portionM">0</td>
+            <td class="right" id="ratioM">0</td>
+            <td class="right"><input id="shareM" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
           </tr>
           <tr>
             <td>Fanda</td>
-            <td class="right"><input id="shareF" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
-            <td class="right" id="ratioF">0</td>
             <td class="right" id="portionF">0</td>
+            <td class="right" id="ratioF">0</td>
+            <td class="right"><input id="shareF" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
           </tr>
           <tr>
             <td>Tóňa</td>
-            <td class="right"><input id="shareT" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
-            <td class="right" id="ratioT">0</td>
             <td class="right" id="portionT">0</td>
+            <td class="right" id="ratioT">0</td>
+            <td class="right"><input id="shareT" type="number" min="0" step="0.01" placeholder="např. 25" /></td>
           </tr>
         </tbody>
       </table>
@@ -177,7 +176,6 @@
       saveState();
     }
 
-    // Události
     ['input','change'].forEach(evt => {
       el.mixF1.addEventListener(evt, compute);
       el.shareK.addEventListener(evt, compute);
@@ -193,12 +191,13 @@
     });
 
     el.exportCsv.addEventListener('click', () => {
+      // Export ve stejném pořadí jako tabulka: Porce | Poměr | Podíl
       const rows = [
-        ['Osoba','Podíl (%)','Poměr','Porce (g)'],
-        ['Kája', el.shareK.value||'0', el.ratioK.textContent, el.portionK.textContent],
-        ['Máša', el.shareM.value||'0', el.ratioM.textContent, el.portionM.textContent],
-        ['Fanda', el.shareF.value||'0', el.ratioF.textContent, el.portionF.textContent],
-        ['Tóňa', el.shareT.value||'0', el.ratioT.textContent, el.portionT.textContent],
+        ['Osoba','Porce (g)','Poměr','Podíl (%)'],
+        ['Kája', el.portionK.textContent, el.ratioK.textContent, el.shareK.value||'0'],
+        ['Máša', el.portionM.textContent, el.ratioM.textContent, el.shareM.value||'0'],
+        ['Fanda', el.portionF.textContent, el.ratioF.textContent, el.shareF.value||'0'],
+        ['Tóňa', el.portionT.textContent, el.ratioT.textContent, el.shareT.value||'0'],
       ];
       const csv = rows.map(r => r.map(v => '"'+String(v).replace('"','\"')+'"').join(',')).join('\n');
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
@@ -206,11 +205,9 @@
       const a = document.createElement('a'); a.href = url; a.download = 'porce.csv'; a.click(); URL.revokeObjectURL(url);
     });
 
-    // Inicializace
     loadState();
     compute();
 
-    // Registrace Service Workeru
     if('serviceWorker' in navigator){
       window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
     }
